@@ -9,55 +9,85 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-func TestHealthCheck(t *testing.T) {
-	req := events.LambdaFunctionURLRequest{
-		RequestContext: events.LambdaFunctionURLRequestContext{
-			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
-				Path:   "/healthcheck",
-				Method: "GET",
+func TestHandleGetRequest(t *testing.T) {
+	testCases := []struct {
+		name           string
+		req            events.LambdaFunctionURLRequest
+		expectedStatus int
+	}{
+		{
+			name: "HealthCheck",
+			req: events.LambdaFunctionURLRequest{
+				RequestContext: events.LambdaFunctionURLRequestContext{
+					HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+						Path:   "/healthcheck",
+						Method: "GET",
+					},
+				},
 			},
+			expectedStatus: 200,
 		},
 	}
-	resp, err := HandleGetRequest(req)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.StatusCode != 200 {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := HandleGetRequest(tc.req)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if resp.StatusCode != tc.expectedStatus {
+				t.Fatalf("expected %d, got %d", tc.expectedStatus, resp.StatusCode)
+			}
+		})
 	}
 }
 
-func TestPostInfer_SuccessAndBadJSON(t *testing.T) {
+func TestHandlePostRequest(t *testing.T) {
 	reqBody := models.InferRequest{
 		PolicyDot: `digraph Policy { start [result=""]; ok [result="approved=true"]; start -> ok [cond="age>=18"] }`,
 		Input:     map[string]interface{}{"age": 20},
 	}
 	b, _ := json.Marshal(reqBody)
-	req := events.LambdaFunctionURLRequest{
-		RequestContext: events.LambdaFunctionURLRequestContext{
-			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
-				Path:   "/infer",
-				Method: "POST",
+
+	testCases := []struct {
+		name           string
+		req            events.LambdaFunctionURLRequest
+		expectedStatus int
+	}{
+		{
+			name: "InferSuccess",
+			req: events.LambdaFunctionURLRequest{
+				RequestContext: events.LambdaFunctionURLRequestContext{
+					HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+						Path:   "/infer",
+						Method: "POST",
+					},
+				},
+				Body: string(b),
 			},
+			expectedStatus: 200,
 		},
-		Body: string(b),
-	}
-	resp := HandlePostRequest(req)
-	if resp.StatusCode != 200 {
-		t.Fatalf("expected 200 for valid infer request, got %d", resp.StatusCode)
+		{
+			name: "BadJSON",
+			req: events.LambdaFunctionURLRequest{
+				RequestContext: events.LambdaFunctionURLRequestContext{
+					HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+						Path:   "/infer",
+						Method: "POST",
+					},
+				},
+				Body: "not-json",
+			},
+			expectedStatus: 400,
+		},
 	}
 
-	bad := events.LambdaFunctionURLRequest{
-		RequestContext: events.LambdaFunctionURLRequestContext{
-			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
-				Path:   "/infer",
-				Method: "POST",
-			},
-		},
-		Body: "not-json",
-	}
-	badResp := HandlePostRequest(bad)
-	if badResp.StatusCode != 400 {
-		t.Fatalf("expected 400 for bad JSON, got %d", badResp.StatusCode)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := HandlePostRequest(tc.req)
+			if resp.StatusCode != tc.expectedStatus {
+				t.Fatalf("expected %d, got %d", tc.expectedStatus, resp.StatusCode)
+			}
+		})
 	}
 }
