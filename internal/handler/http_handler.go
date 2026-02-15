@@ -1,6 +1,12 @@
 package http_handler
 
 import (
+	"encoding/json"
+	"fmt"
+	"lab/internal/logger"
+	"lab/internal/models"
+	"lab/internal/parser"
+
 	"github.com/aws/aws-lambda-go/events"
 )
 
@@ -10,18 +16,23 @@ func HandleGetRequest(request events.LambdaFunctionURLRequest) (events.LambdaFun
 	case "/healthcheck":
 		return healthCheck(), nil
 	default:
-		return handleBadRequest(), nil
+		return handleNotFound(), nil
 	}
 
 }
 
-func HandlePostRequest(request events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+func HandlePostRequest(request events.LambdaFunctionURLRequest) events.LambdaFunctionURLResponse {
 	path := request.RequestContext.HTTP.Path
+	var data models.InferRequest
+	err := json.Unmarshal([]byte(request.Body), &data)
+	if err != nil {
+		return handleBadRequest(err, request.RequestContext.RequestID)
+	}
 	switch path {
 	case "/infer":
-		return infer(), nil
+		return infer(data.PolicyDot)
 	default:
-		return handleBadRequest(), nil
+		return handleNotFound()
 	}
 }
 
@@ -33,7 +44,8 @@ func healthCheck() events.LambdaFunctionURLResponse {
 	}
 }
 
-func handleBadRequest() events.LambdaFunctionURLResponse {
+func handleBadRequest(err error, requestID string) events.LambdaFunctionURLResponse {
+	logger.LogInfo(err.Error(), requestID)
 	return events.LambdaFunctionURLResponse{
 		Body:       `{{"error": "Bad Request"}}`,
 		StatusCode: 400,
@@ -41,9 +53,18 @@ func handleBadRequest() events.LambdaFunctionURLResponse {
 	}
 }
 
-func infer() events.LambdaFunctionURLResponse {
+func handleNotFound() events.LambdaFunctionURLResponse {
 	return events.LambdaFunctionURLResponse{
-		Body:       `{{"TODO": "Resto da aplicação continua daqui"}}`,
+		Body:       `{{"error": "Not Found"}}`,
+		StatusCode: 404,
+		Headers:    map[string]string{"Content-Type": "application/json"},
+	}
+}
+
+func infer(dotString string) events.LambdaFunctionURLResponse {
+	parsed, _ := parser.ParsePolicy(dotString)
+	return events.LambdaFunctionURLResponse{
+		Body:       fmt.Sprintf(`{"&parsed": %v }, {"parsed": %v}`, &parsed, parsed),
 		StatusCode: 200,
 		Headers:    map[string]string{"Content-Type": "application/json"},
 	}

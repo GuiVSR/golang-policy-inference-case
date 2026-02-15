@@ -7,15 +7,6 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-type RequestPayload struct {
-	PolicyDot string                 `json:"policy_dot"`
-	Input     map[string]interface{} `json:"input"`
-}
-
-type ResponsePayload struct {
-	Message string `json:"message"`
-}
-
 func main() {
 	lambda.Start(handler)
 }
@@ -29,10 +20,7 @@ func handler(request events.LambdaFunctionURLRequest) (events.LambdaFunctionURLR
 		}
 		return getResponse, nil
 	case "POST":
-		postResponse, err := http_handler.HandlePostRequest(request)
-		if err != nil {
-			return postResponse, err
-		}
+		postResponse := http_handler.HandlePostRequest(request)
 		return postResponse, nil
 	default:
 		defaultResponse := events.LambdaFunctionURLResponse{
