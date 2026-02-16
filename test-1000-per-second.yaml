@@ -1,0 +1,36 @@
+config:
+  # Set this to your API Gateway or Function URL base (no path)
+  target: "https://noaca6ofui2g2wcie7ipnfp3i40jzipi.lambda-url.sa-east-1.on.aws"
+  http:
+    pool: 100
+    timeout: 30
+  phases:
+    - duration: 60
+      arrivalRate: 1    # warm-up
+    - duration: 120
+      arrivalRate: 100   # ramp
+    - duration: 300
+      arrivalRate: 1000   # sustain target (adjust as needed)
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "POST /infer with complex JSON"
+    flow:
+      - post:
+          url: "/infer"
+          json:
+            policy_dot: >
+              digraph Policy { start [result=""]; age_check [result=""]; income_check [result=""]; credit_check [result=""]; employment_check [result=""]; debt_check [result=""]; savings_check [result=""]; expenses_check [result=""]; home_check [result=""]; education_check [result=""]; marital_check [result=""]; approved [result="approved=true,segment=prime"]; rejected [result="approved=false"]; start -> age_check [cond="age >= 18"]; age_check -> income_check [cond="income > 30000"]; income_check -> credit_check [cond="credit_score > 650"]; credit_check -> employment_check [cond="employment_years >= 2"]; employment_check -> debt_check [cond="debt_to_income_ratio < 0.4"]; debt_check -> savings_check [cond="savings_amount > 10000"]; savings_check -> expenses_check [cond="monthly_expenses < income * 0.3"]; expenses_check -> home_check [cond="home_ownership == true"]; home_check -> education_check [cond="education_level == 'bachelor' || education_level == 'master'"]; education_check -> marital_check [cond="marital_status == 'married'"]; marital_check -> approved; start -> rejected [cond="age < 18"]; age_check -> rejected [cond="income <= 30000"]; income_check -> rejected [cond="credit_score <= 650"]; credit_check -> rejected [cond="employment_years < 2"]; employment_check -> rejected [cond="debt_to_income_ratio >= 0.4"]; debt_check -> rejected [cond="savings_amount <= 10000"]; savings_check -> rejected [cond="monthly_expenses >= income * 0.3"]; expenses_check -> rejected [cond="home_ownership == false"]; home_check -> rejected [cond="education_level != 'bachelor' && education_level != 'master'"]; education_check -> rejected [cond="marital_status != 'married'"]; }
+            input:
+              age: 30
+              income: 60000
+              credit_score: 750
+              employment_years: 5
+              debt_to_income_ratio: 0.3
+              savings_amount: 20000
+              monthly_expenses: 15000
+              home_ownership: true
+              education_level: "bachelor"
+              marital_status: "married"

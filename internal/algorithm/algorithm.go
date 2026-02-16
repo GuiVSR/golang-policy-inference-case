@@ -1,8 +1,6 @@
 package algorithm
 
 import (
-	"fmt"
-
 	"lab/internal/models"
 
 	"github.com/Knetic/govaluate"
@@ -13,7 +11,6 @@ func evalCondition(expr *govaluate.EvaluableExpression, vars map[string]interfac
 	if err != nil {
 		return false, err
 	}
-	fmt.Println(result)
 	return result.(bool), nil
 }
 
