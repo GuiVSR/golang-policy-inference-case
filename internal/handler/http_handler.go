@@ -2,7 +2,7 @@ package http_handler
 
 import (
 	"encoding/json"
-	"fmt"
+	"lab/internal/algorithm"
 	"lab/internal/logger"
 	"lab/internal/models"
 	"lab/internal/parser"
@@ -30,7 +30,7 @@ func HandlePostRequest(request events.LambdaFunctionURLRequest) events.LambdaFun
 	}
 	switch path {
 	case "/infer":
-		return infer(data.PolicyDot)
+		return infer(data.PolicyDot, data.Input)
 	default:
 		return handleNotFound()
 	}
@@ -61,10 +61,12 @@ func handleNotFound() events.LambdaFunctionURLResponse {
 	}
 }
 
-func infer(dotString string) events.LambdaFunctionURLResponse {
+func infer(dotString string, input map[string]interface{}) events.LambdaFunctionURLResponse {
 	parsed, _ := parser.ParsePolicy(dotString)
+	output, _ := algorithm.EvaluatePolicy(parsed, input)
+	jsonBody, _ := json.Marshal(output)
 	return events.LambdaFunctionURLResponse{
-		Body:       fmt.Sprintf(`{"&parsed": %v }, {"parsed": %v}`, &parsed, parsed),
+		Body:       string(jsonBody),
 		StatusCode: 200,
 		Headers:    map[string]string{"Content-Type": "application/json"},
 	}
