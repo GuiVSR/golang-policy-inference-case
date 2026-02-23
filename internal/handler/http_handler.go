@@ -1,6 +1,9 @@
 package http_handler
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"lab/internal/algorithm"
 	"lab/internal/logger"
@@ -8,6 +11,7 @@ import (
 	"lab/internal/parser"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/goccy/go-graphviz"
 )
 
 func HandleGetRequest(request events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
@@ -23,14 +27,16 @@ func HandleGetRequest(request events.LambdaFunctionURLRequest) (events.LambdaFun
 
 func HandlePostRequest(request events.LambdaFunctionURLRequest) events.LambdaFunctionURLResponse {
 	path := request.RequestContext.HTTP.Path
-	var data models.InferRequest
-	err := json.Unmarshal([]byte(request.Body), &data)
+	var input models.InferRequest
+	err := json.Unmarshal([]byte(request.Body), &input)
 	if err != nil {
 		return handleBadRequest(err, request.RequestContext.RequestID)
 	}
 	switch path {
 	case "/infer":
-		return infer(data.PolicyDot, data.Input)
+		return infer(input.PolicyDot, input.Input)
+	case "/visualize":
+		return visualizeGraph(input.PolicyDot)
 	default:
 		return handleNotFound()
 	}
@@ -53,6 +59,15 @@ func handleBadRequest(err error, requestID string) events.LambdaFunctionURLRespo
 	}
 }
 
+func handleInternalError(err error, requestID string) events.LambdaFunctionURLResponse {
+	logger.LogInfo(err.Error(), requestID)
+	return events.LambdaFunctionURLResponse{
+		Body:       `{{"error": "Internal Server Error"}}`,
+		StatusCode: 500,
+		Headers:    map[string]string{"Content-Type": "application/json"},
+	}
+}
+
 func handleNotFound() events.LambdaFunctionURLResponse {
 	return events.LambdaFunctionURLResponse{
 		Body:       `{{"error": "Not Found"}}`,
@@ -62,12 +77,42 @@ func handleNotFound() events.LambdaFunctionURLResponse {
 }
 
 func infer(dotString string, input map[string]interface{}) events.LambdaFunctionURLResponse {
-	parsed, _ := parser.ParsePolicy(dotString)
-	output, _ := algorithm.EvaluatePolicy(parsed, input)
+	parsed, err := parser.ParsePolicy(dotString)
+	if err != nil {
+		return handleBadRequest(err, err.Error())
+	}
+
+	output, err := algorithm.EvaluatePolicy(parsed, input)
+	if err != nil {
+		return handleInternalError(err, err.Error())
+	}
 	jsonBody, _ := json.Marshal(output)
 	return events.LambdaFunctionURLResponse{
 		Body:       string(jsonBody),
 		StatusCode: 200,
 		Headers:    map[string]string{"Content-Type": "application/json"},
 	}
+}
+
+func visualizeGraph(dotString string) events.LambdaFunctionURLResponse {
+	g, _ := parser.BuildRenderGraph(dotString)
+	gv, _ := graphviz.New(context.Background())
+	defer gv.Close()
+
+	var buf bytes.Buffer
+	gv.Render(context.Background(), g, graphviz.PNG, &buf)
+
+	return events.LambdaFunctionURLResponse{
+		Body:       base64.StdEncoding.EncodeToString(buf.Bytes()),
+		StatusCode: 200,
+		Headers: map[string]string{
+			"Content-Type":        "image/png",
+			"Content-Disposition": "inline; filename=\"graph.png\"",
+		},
+		IsBase64Encoded: true,
+	}
+}
+
+func encodeBase64(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
 }

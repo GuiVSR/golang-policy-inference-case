@@ -24,6 +24,7 @@ type LogEntry struct {
 type Node struct {
 	Name       string
 	Attributes map[string]interface{}
+	Edges      []*Edge
 }
 
 type Edge struct {
@@ -34,10 +35,5 @@ type Edge struct {
 
 type Graph struct {
 	Nodes map[string]*Node
-	Edges []*Edge
 	Start string
 }
-
-type ResultNodes map[string]map[string]string
-
-type Edges []*Edge
