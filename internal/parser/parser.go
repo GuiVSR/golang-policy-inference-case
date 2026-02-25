@@ -7,7 +7,6 @@ import (
 	"github.com/Knetic/govaluate"
 	"github.com/awalterschulze/gographviz"
 	"github.com/awalterschulze/gographviz/ast"
-	"github.com/goccy/go-graphviz/cgraph"
 )
 
 func ParsePolicy(dotString string) (*models.Graph, error) {
@@ -109,42 +108,4 @@ func parseCondition(edgeStmt *ast.EdgeStmt) *govaluate.EvaluableExpression {
 		}
 	}
 	return nil
-}
-
-func BuildRenderGraph(dotString string) (*cgraph.Graph, error) {
-	renderGraph := gographviz.NewGraph()
-	rawGraph, _ := gographviz.ParseString(dotString)
-	statementList := rawGraph.StmtList
-
-	for _, stmt := range statementList {
-		if nodeStmt, ok := stmt.(*ast.NodeStmt); ok {
-			nodeID := string(nodeStmt.NodeID.ID)
-			attrs := make(map[string]string)
-			if nodeStmt.Attrs != nil {
-				for _, attr := range nodeStmt.Attrs {
-					attrs[attr[0].Field.String()] = attr[0].Value.String()
-				}
-			}
-			renderGraph.AddNode("G", nodeID, attrs)
-		}
-
-		if edgeStmt, ok := stmt.(*ast.EdgeStmt); ok {
-			sourceID := string(edgeStmt.Source.GetID())
-			destID := string(edgeStmt.EdgeRHS[0].Destination.GetID())
-			attrs := make(map[string]string)
-			if edgeStmt.Attrs != nil {
-				for _, attrList := range edgeStmt.Attrs {
-					for _, attr := range attrList {
-						attrs[attr.Field.String()] = attr.Value.String()
-					}
-				}
-			}
-			renderGraph.AddEdge(sourceID, destID, true, attrs)
-		}
-	}
-
-	dotOutput := renderGraph.String()
-	renderableGraph, _ := cgraph.ParseBytes([]byte(dotOutput))
-
-	return renderableGraph, nil
 }
