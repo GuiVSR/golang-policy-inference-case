@@ -20,8 +20,19 @@ zip go_lambda.zip bootstrap
 
 Como Testar
 
-Em desenvolvimento - área reservada para instruções de teste.
+Roda os testes localmente
+```bash
+go test ./...
+```
+Isso vai gerar o coverage.out.
+```bash
+go test -coverprofile=coverage.out ./...
+```
 
+Abre uma interface gráfica com o coverage.
+```bash
+go tool cover -html=coverage.out
+```
 
 Decisões Técnicas
 Arquitetura
